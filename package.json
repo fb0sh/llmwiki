@@ -1,0 +1,16 @@
+{
+  "name": "llmwiki",
+  "version": "1.0.0",
+  "description": "一个由 LLM 持久维护的个人知识库。知识被编译一次、持续更新，不会从零推导。",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "marked": "^18.0.6"
+  }
+}

@@ -1,0 +1,1 @@
+../.skills/llmwiki-gen-web/search.js

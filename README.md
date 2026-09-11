@@ -71,28 +71,37 @@ cp ~/Clippings/某篇文章.md raw/     # 放入源文档
 
 ## 使用
 
-### 摄取新源
+日常只需要一句话：**把源交出去，剩下的 agent 做**。
 
-支持 Word、PPT、Excel、PDF、EPUB、CSV 等格式（HTML 走 pandoc，图片走 RapidOCR）。
-
-```bash
-# 方式 A：用 ingest 脚本（自动转换并放入 raw/）
-./scripts/ingest.sh ~/Downloads/某篇文章.pdf
-
-# 方式 B：直接用 anydoc 转
-anydoc 某文件.pdf -o raw/某文件.md
-
-# 方式 C：手动放 markdown 进去
-cp ~/Clippings/某篇文章.md raw/
+```
+把 ~/Downloads/某篇文章.pdf 处理进 wiki
+这个链接存进 wiki：https://example.com/article
+（或者直接把一段文字粘进对话）把这段存进 wiki
 ```
 
-然后对 agent 说「处理这个新源 raw/某文件.md」。LLM 会：
+源可以是任意路径的文件、网页链接，或直接粘贴的文字；文件格式支持 Word、PPT、Excel、PDF、EPUB、CSV（HTML 走 pandoc，图片和扫描件走 RapidOCR）。
 
-- 读原始文档
+**转换、命名、搬进 `raw/` 都是 agent 的活。** 不需要自己先转成 Markdown，不用手动复制进 `raw/`；粘贴的文字也一样，agent 会把它写成 `raw/` 下的文件。
+
+收到后它依次完成：
+
+- 转成 Markdown 放进 `raw/`（源材料层，只读不改）
 - 在 `wiki/sources/` 写摘要页
 - 创建/更新 `wiki/concepts/` 和 `wiki/entities/` 页面
 - 更新 `index.md` 和 `log.md`
 - 把 SHA256 记入 `raw/.ingest-state.json`，下次自动跳过
+
+### 自己动手（可选）
+
+想自己控制转换过程时：
+
+```bash
+./scripts/ingest.sh ~/Downloads/某篇文章.pdf    # 转成 .md 并放进 raw/
+anydoc 某文件.pdf -o raw/某文件.md              # 或直接调 anydoc
+cp ~/Clippings/某篇文章.md raw/                 # markdown 直接复制进去
+```
+
+放好之后对 agent 说「处理这个新源 raw/某文件.md」，它接着写摘要和维护交叉引用。
 
 ### 批次处理
 
@@ -128,7 +137,8 @@ LLM 会先问方向（⬆ 上传 / ⬇ 下载）再问策略，不擅自决定�
 
 | 你说 | LLM 做 |
 |------|--------|
-| "处理这个新源" | 摄取 → 摘要 → 更新关联页面 → 维护索引 |
+| "把 <路径/链接> 处理进 wiki" | 转换 → 放进 `raw/` → 摘要 → 更新关联页面 → 维护索引 |
+| "处理这个新源"（源已在 `raw/`） | 摄取 → 摘要 → 更新关联页面 → 维护索引 |
 | "处理 raw/ 里所有新文件" | 扫描 raw/ → SHA256 比对 → 只处理新增/变更 |
 | 直接提问 | 查 wiki → 综合回答 |
 | "记住" / "把这个记入 wiki" | 归档到 `wiki/qa/` 或更新对应页面 |

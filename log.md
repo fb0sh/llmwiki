@@ -19,3 +19,14 @@
 
 - 方向：⬆ 上传（本地 → 远程），策略 ① 自动提交
 - 变更：`README.md`、`AGENTS.md`、`.skills/llmwiki-query/SKILL.md`、`.gitignore`、`index.md`、`log.md`、`wiki/_index_.md`
+
+## [2026-09-11] docs | 摄取改为 agent 主导
+
+- 修正 `scripts/ingest.sh`：产物原本落在源文件所在目录，与脚本名/注释/README 说的"放入 raw/"不符，现在统一写入 `raw/`（含软链调用、从任意 cwd 调用、幂等跳过）；顺带修掉 `$MD_NAME」` 在 UTF-8 locale 下被 `set -u` 判为未绑定变量的报错
+- `README.md` 使用一节改为 agent 主导：给路径/链接/文字即可，转换与落盘由 agent 完成；手动命令降为「自己动手（可选）」
+- `AGENTS.md` 摄取工作流与 `.skills/llmwiki-ingest/SKILL.md` 明确：源可以在 `raw/` 之外（路径 / 链接 / 粘贴的文字），转换落盘是 agent 的职责，不应要求人类先转好或手动搬进来
+
+## [2026-09-11] sync | 上传 — 摄取流程改为 agent 主导
+
+- 方向：⬆ 上传（本地 → 远程），策略 ① 自动提交
+- 变更：`README.md`、`AGENTS.md`、`.skills/llmwiki-ingest/SKILL.md`、`scripts/ingest.sh`、`log.md`

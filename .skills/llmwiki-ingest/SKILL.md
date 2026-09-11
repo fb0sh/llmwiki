@@ -7,7 +7,9 @@ description: Use when the user says "处理这个新源", "ingest", "handle this
 
 ## 概述
 
-将 `raw/` 中的源文档编译为 wiki 知识。读源 → 写摘要 → 更新概念/实体页 → 维护索引和日志。支持增量检测：已处理过的文件（SHA256 在状态集中）自动跳过。
+将源文档编译为 wiki 知识。读源 → 写摘要 → 更新概念/实体页 → 维护索引和日志。支持增量检测：已处理过的文件（SHA256 在状态集中）自动跳过。
+
+**源的来源不限。** 人类可以给你 `raw/` 下的路径、仓库外的任意路径（`~/Downloads/x.pdf`）、网页链接，或直接粘一段文字 —— 转换和落盘由你完成，不要要求人类自己先转好或搬进 `raw/`。
 
 ## 工作流
 
@@ -15,7 +17,10 @@ description: Use when the user says "处理这个新源", "ingest", "handle this
 
 ```mermaid
 flowchart TD
-    A[源文件在 raw/ 中] --> B{sha256 在已知集?}
+    A[人类给出源: raw/ 内路径 / 外部路径 / 链接 / 粘贴文本] --> A2{已在 raw/ 中?}
+    A2 -->|否| A3[转换并放进 raw/]
+    A2 -->|是| B{sha256 在已知集?}
+    A3 --> B
     B -->|是| C[跳过]
     B -->|否| D{已是 .md?}
     D -->|否| E[anydoc 转换]
@@ -114,27 +119,32 @@ newFiles.forEach(l => console.log(l.split(/\s+/).pop()));
 
 ### 1. 准备源文件
 
-如果源文件不是 `.md` 格式，先用 anydoc 转换（支持 doc/docx、ppt/pptx、xls/xlsx、odt/ods/odp、rtf、epub、csv、pdf）：
+**源不是文件时，也要你落盘。** 人类给出网页链接，或把一段文字粘进对话并说要处理 / 存进 wiki —— 抓取正文或整理粘贴内容，写成 `raw/<合适文件名>.md`（带最小 frontmatter），再走下方流程。不要要求人类自己存成文件。若意图不明确（只是想讨论，还是要入库），按 `AGENTS.md`「澄清规则」先问一句，别默认一切粘贴内容都该进 `raw/`。
+
+**源不在 `raw/` 时，是你负责转换并放进去**，不要回头让人类自己操作。按类型选工具：
+
+| 源 | 做法 |
+|----|------|
+| Word / PPT / Excel / OpenDocument / RTF / EPUB / CSV / PDF | `anydoc <源文件> -o raw/<文件名>.md` |
+| HTML、网页链接 | `pandoc -f html -t gfm <文件> -o raw/<文件名>.md`；链接先抓取正文（trafilatura）再转 |
+| 图片、扫描 PDF | 走 `llmwiki-image-ocr`（RapidOCR），输出写入 `raw/` |
+| 粘贴的文字、对话中的内容 | 你直接写入 `raw/<标题或主题>.md`（含 frontmatter：title / created / source） |
+| 已经是 markdown 文件 | 直接在 `raw/` 内则用；在外部路径则复制进 `raw/` |
+
+也可以调脚本一步完成（转换 + 放进 `raw/`）：
 
 ```bash
-anydoc raw/源文件.pdf -o raw/源文件.md
+./scripts/ingest.sh ~/Downloads/某文件.pdf     # → raw/某文件.md
+./scripts/ingest.sh raw/某文件.pdf             # 已在 raw/ 里，就地转换
 ```
 
-或使用 ingest 脚本：
-
-```bash
-./scripts/ingest.sh raw/源文件.pdf
-```
-
-> HTML 不在 anydoc 支持范围内：`ingest.sh` 会用 pandoc 自动转 GFM（`pandoc -f html -t gfm`）。若网页导航/页脚噪音多，可改用 trafilatura（`pip install trafilatura`，按正文提取，自动剥离噪音）：
+> HTML 不在 anydoc 支持范围内，`ingest.sh` 会自动改用 pandoc。若网页导航/页脚噪音多，可改用 trafilatura 按正文提取（`pip install trafilatura`）：
 >
 > ```bash
 > trafilatura --input-dir <html所在目录> -o <输出目录> --output-format markdown
 > ```
->
-> 图片/扫描 PDF 走 `llmwiki-image-ocr`（RapidOCR）流程。
 
-> 原始文件始终保留，转换后的 `.md` 放入 `raw/` 目录。
+> **`raw/` 是只读源材料层**：转换产物放进 `raw/`，但已放进去的文件不再改写。转换前的原始文件留在原处即可。
 
 ### 2. 写源摘要
 

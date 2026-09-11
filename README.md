@@ -10,66 +10,73 @@
 放入源 → LLM 读 → 写摘要 → 更新概念/实体 → 维护索引 → 下次查询直接回答
 ```
 
-## 前置条件
-
-```bash
-# 1. 确保 Python 可用（mise 管理）
-mise sync
-mise install python@3.12  # 如果还没有
-
-# 2. 安装 anydoc（Firecrawl 出品，将任意文档转为 GFM Markdown）
-npm install -g @firecrawl/anydoc
-
-# 3. 安装 rapidocr（图片 OCR，anydoc 处理不了时的备选）
-pip install rapidocr
-
-# 4. 确认 pandoc 可用（HTML → Markdown 用，anydoc 不处理 HTML）
-which pandoc   # macOS: brew install pandoc
-
-# 5. 确认 pi 可用
-pi --version
-```
-
 ## 快速开始
 
-### 从模板创建（Use this template）
+本仓库是模板：[github.com/fb0sh/llmwiki](https://github.com/fb0sh/llmwiki)。四步得到你自己的 wiki。
 
-最省事的启动方式：直接用本仓库做模板，创建你自己的 wiki。
+### 1. 从模板创建仓库
+
+打开 [github.com/fb0sh/llmwiki](https://github.com/fb0sh/llmwiki) → 右上角绿色按钮 **Use this template** → **Create a new repository**。
+
+- 仓库名随意，例如 `my-wiki`
+- 可见性选 **Private** —— 里面是你的个人知识
+
+### 2. 克隆到本地
 
 ```bash
-# 1. 打开模板仓库，点击右上角绿色按钮
-#    https://github.com/<你的用户名>/llmwiki  →  Use this template
-#
-# 2. 仓库名填 username/wiki 格式，例如：
-#    <你的用户名>/llmwiki   →  你的用户名/你的wiki名
-#
-# 3. 克隆到本地
-cd ~/Temp
-gh repo clone 你的用户名/wiki   # 或: git clone git@github.com:你的用户名/wiki.git
-cd wiki
-
-# 4. 清掉模板自带的知识内容，从零开始（可选）
-rm -rf raw/* wiki/* index.md
-mkdir -p raw/assets wiki/concepts wiki/entities wiki/sources wiki/qa
+gh repo clone 你的用户名/my-wiki    # 或: git clone git@github.com:你的用户名/my-wiki.git
+cd my-wiki
 ```
 
-> 模板自带完整的 `AGENTS.md` 行为规范、`.skills/` 工作流脚本和目录结构。克隆后只需把仓库地址换成自己的（`git remote set-url origin git@github.com:你的用户名/wiki.git`），然后开始放入源文档即可。
+模板已自带完整目录结构、`AGENTS.md` 行为规范和 `.skills/` 工作流，克隆后无需清理，直接开始用。
 
-### 初始化环境
+### 3. 初始化
 
 ```bash
-cd ~/Temp/wiki
-
-# 确保 anydoc 就绪
-which anydoc
+npm install                          # 安装 marked（生成静态网站用）
+npm install -g @firecrawl/anydoc     # 文档转换；免安装可用 npx @firecrawl/anydoc
 ```
 
-### 放入新源
-
-支持 Word、PPT、Excel、PDF、EPUB、CSV 等格式（HTML 自动用 pandoc 转换，图片用 RapidOCR）。
+需要图片 OCR 的话，再用 mise 装 Python（推荐 —— 版本写在 `mise.toml` 里，换机器不用重新对齐）：
 
 ```bash
-# 方式 A：用 ingest 脚本（自动转换 + 放入 raw/）
+mise trust && mise install           # 首次必须先 trust，否则 mise 拒绝读本仓库的 mise.toml
+pip install rapidocr
+```
+
+> 没装 mise 也可以用系统 Python，只是版本不受 `mise.toml` 约束。mise 安装见 [mise.jdx.dev](https://mise.jdx.dev)。
+
+### 4. 开始使用
+
+用你惯用的编码 agent（Claude Code、Codex、DSH、pi 等）打开这个目录。它会读 `AGENTS.md` 了解规范，并通过 `.agents/skills/`（软链到 `.skills/`）发现工作流。
+
+```bash
+cp ~/Clippings/某篇文章.md raw/     # 放入源文档
+```
+
+然后对 agent 说：
+
+```
+处理这个新源 raw/某篇文章.md
+```
+
+## 前置条件
+
+| 工具 | 用途 | 安装 |
+|------|------|------|
+| Node.js + npm | 生成静态网站（依赖 `marked`） | `npm install` |
+| anydoc | Word/PPT/Excel/PDF/EPUB/CSV → GFM Markdown（格式从字节识别） | `npm install -g @firecrawl/anydoc` |
+| pandoc | HTML → Markdown（anydoc 不处理 HTML） | `brew install pandoc` |
+| mise + Python + rapidocr | 图片、扫描 PDF 的 OCR（可选）。推荐用 mise 管 Python 版本 | `mise trust && mise install` + `pip install rapidocr` |
+
+## 使用
+
+### 摄取新源
+
+支持 Word、PPT、Excel、PDF、EPUB、CSV 等格式（HTML 走 pandoc，图片走 RapidOCR）。
+
+```bash
+# 方式 A：用 ingest 脚本（自动转换并放入 raw/）
 ./scripts/ingest.sh ~/Downloads/某篇文章.pdf
 
 # 方式 B：直接用 anydoc 转
@@ -79,24 +86,13 @@ anydoc 某文件.pdf -o raw/某文件.md
 cp ~/Clippings/某篇文章.md raw/
 ```
 
-然后启动 pi，让它处理：
+然后对 agent 说「处理这个新源 raw/某文件.md」。LLM 会：
 
-```bash
-pi
-```
-
-在 pi 交互中：
-
-```
-处理这个新源 raw/某文章.md
-```
-
-LLM 就会：
 - 读原始文档
 - 在 `wiki/sources/` 写摘要页
 - 创建/更新 `wiki/concepts/` 和 `wiki/entities/` 页面
 - 更新 `index.md` 和 `log.md`
-- **SHA256 记录到 `raw/.ingest-state.json`，下次自动跳过**
+- 把 SHA256 记入 `raw/.ingest-state.json`，下次自动跳过
 
 ### 批次处理
 
@@ -110,25 +106,23 @@ LLM 会扫描 `raw/`，对比 `raw/.ingest-state.json`，自动跳过已处理�
 
 ### 查询
 
-```bash
-pi
-```
-
-直接问：
-
-```
-{你的问题，比如 "xxx 的核心论点是什么？"}
-```
-
-LLM 会先查 `index.md` 定位页面，读相关内容，综合回答。有价值的回答会自动归档到 `wiki/qa/`。
+直接提问，例如「xxx 的核心论点是什么？」。LLM 先查 `index.md` 定位页面，读相关内容后综合回答。按下面的记忆边界，只有你明确要求归档时才写入 `wiki/qa/`。
 
 ### 健康检查
-
-在 pi 中：
 
 ```
 健康检查
 ```
+
+或 `lint`。扫描矛盾、过时声明、孤立页面、缺失交叉引用。
+
+### 同步
+
+```
+同步
+```
+
+LLM 会先问方向（⬆ 上传 / ⬇ 下载）再问策略，不擅自决定。
 
 ### 常用操作速查
 
@@ -136,43 +130,56 @@ LLM 会先查 `index.md` 定位页面，读相关内容，综合回答。有价�
 |------|--------|
 | "处理这个新源" | 摄取 → 摘要 → 更新关联页面 → 维护索引 |
 | "处理 raw/ 里所有新文件" | 扫描 raw/ → SHA256 比对 → 只处理新增/变更 |
-| 直接提问 | 查 wiki → 综合回答 → 归档新洞见 |
+| 直接提问 | 查 wiki → 综合回答 |
+| "记住" / "把这个记入 wiki" | 归档到 `wiki/qa/` 或更新对应页面 |
 | "健康检查" 或 "lint" | 扫描矛盾、孤立页、过时声明、缺失交叉引用 |
-| "生成网站" 或 "build site" | 将 wiki/ 编译为 html/ 学术风静态网站 |
-| "OCR" 或 "识别图片文字" | 用 RapidOCR 提取图片文字 → 输出 Markdown → 可继续 ingest |
-| "把这个记入 wiki" | 把刚发现的连接或洞见写到 wiki 中 |
+| "同步" / "上传" / "下载" | commit + push 或 pull（方向与策略必问） |
+| "生成网站" 或 "build site" | 把 `wiki/` 编译为 `html/` 学术风静态网站 |
+| "OCR" 或 "识别图片文字" | RapidOCR 提取图片文字 → Markdown → 可继续 ingest |
+
+## 记忆边界
+
+默认只读。只有两种情况才写 wiki：
+
+1. 你明确说「记住 / 记入 wiki / 归档 / 更新某页」
+2. 你触发了 skill（ingest、query、doctor、sync、gen-web、image-ocr）—— skill 内部定义的写入属于授权范围
+
+其余情况（闲聊、临时分析、一时联想到的可能性）只在对话中回答，不落盘：不改 `wiki/` 页面，不动 `index.md`、`log.md`，不记入 `raw/.ingest-state.json`。
 
 ## Skill 一览
 
 | Skill | 用途 | 触发词 |
 |-------|------|--------|
 | `llmwiki-ingest` | 摄取新源 — 读源文档 → 写摘要 → 更新概念/实体页 → 维护索引 | "处理这个新源" / "ingest" |
-| `llmwiki-query` | 查询 wiki 内容 — 读 index.md 定位页面 → 综合回答 → 归档新洞见 | 直接提问 |
+| `llmwiki-query` | 查询 wiki 内容 — 读 index.md 定位页面 → 综合回答 | 直接提问 |
 | `llmwiki-doctor` | 健康检查 — 扫描矛盾页面、孤立页、过时声明、缺失交叉引用 | "健康检查" / "lint" |
-| `llmwiki-gen-web` | 静态网站生成 — 将 wiki/ markdown 编译为学术风 HTML 到 html/ | "生成网站" / "build site" |
-| `llmwiki-image-ocr` | 图片 OCR — anydoc 无法提取图片文字时，用 RapidOCR 识别并输出 Markdown | "OCR" / "识别图片文字" |
+| `llmwiki-sync` | 仓库同步 — 上传（commit + push）或下载（pull），方向与策略必问 | "同步" / "上传" / "下载" |
+| `llmwiki-gen-web` | 静态网站生成 — 把 `wiki/` markdown 编译为学术风 HTML 到 `html/` | "生成网站" / "build site" |
+| `llmwiki-image-ocr` | 图片 OCR — anydoc 提不出文字时用 RapidOCR 识别并输出 Markdown | "OCR" / "识别图片文字" |
 
-所有 skill 源码在 `.skills/` 目录下版本控制，`~/.agents/skills/` 下的同名目录是 pi 自动发现入口。
+所有 skill 源码在 `.skills/` 下版本控制，`.agents/skills/` 是指向它的软链，作为编码 agent 的项目级发现入口。
 
 ## 目录结构
 
 ```
 llmwiki/
 ├── README.md             ← 本文件
-├── AGENTS.md             ← 行为规范（LLM 读这个就知道怎么工作）
-├── index.md              ← 内容目录（LLM 查这个定位页面）
+├── AGENTS.md             ← 行为规范（agent 读这个就知道怎么工作）
+├── index.md              ← 内容目录（agent 查这个定位页面）
 ├── log.md                ← 操作日志
+├── mise.toml             ← Python 版本（mise，OCR 用）
+├── package.json          ← marked 依赖（静态网站用）
 ├── .gitignore
-├── mise.toml             ← Python 版本管理
 ├── .skills/              ← llmwiki 专用 skill（版本控制）
 │   ├── llmwiki-ingest/   ← 摄取工作流
 │   ├── llmwiki-query/    ← 查询工作流
 │   ├── llmwiki-doctor/   ← 健康检查工作流
-│   ├── llmwiki-gen-web/  ← 静态网站生成
+│   ├── llmwiki-sync/     ← 仓库同步工作流
+│   ├── llmwiki-gen-web/  ← 静态网站生成（gen-web.js + search.js）
 │   └── llmwiki-image-ocr/← 图片 OCR 提取
-├── .agents/               ← pi 项目级发现入口（软链 → .skills/）
+├── .agents/skills        ← 软链 → ../.skills/
 ├── raw/                  ← 原始文档（不可变）
-│   ├── .gitkeep          ← 保持目录被 git 跟踪
+│   ├── .gitkeep
 │   ├── .ingest-state.json← SHA256 哈希集合（增量检测）
 │   ├── assets/           ← 图片、附件
 │   └── *.md / *.pdf      ← 源文档（任意格式）
@@ -183,67 +190,70 @@ llmwiki/
 │   ├── sources/          ← 源摘要
 │   └── qa/               ← 归档查询
 └── scripts/
-    └── ingest.sh         ← 用 anydoc 一键转换并放入 raw
+    ├── ingest.sh         ← 用 anydoc/pandoc 一键转换并放入 raw
+    ├── gen-web.js        ← 软链 → ../.skills/llmwiki-gen-web/gen-web.js
+    └── search.js         ← 软链 → ../.skills/llmwiki-gen-web/search.js
 ```
 
-## 上传到 GitHub
+## 版本控制
 
-```bash
-# 1. 在 GitHub 新建仓库（不要勾选 README / .gitignore）
-# 2. 在本地推
-cd ~/Temp/wiki
-git init
-git add .
-git commit -m "init: llmwiki personal knowledge base"
-git remote add origin git@github.com:你的用户名/你的仓库名.git
-git branch -M main
-git push -u origin main
-```
+`.gitignore` 的取舍：
 
-> 项目内置了 `.gitignore`，已排除系统文件和缓存。`raw/` 和 `wiki/` 的内容都会被追踪——它们是你的知识资产。
+| 路径 | 入库 | 说明 |
+|------|------|------|
+| `wiki/`、`index.md`、`log.md` | ✅ | 编译产物 —— 你的知识资产 |
+| `.skills/`、`scripts/`、`AGENTS.md`、`README.md` | ✅ | 工作流与规范 |
+| `raw/.gitkeep`、`raw/assets/.gitkeep`、`raw/.ingest-state.json` | ✅ | 目录占位与增量检测状态（`raw/*` 规则的例外放行） |
+| `raw/*`（源文档、`raw/assets/` 里的附件） | ❌ | 只留本地，仓库里只有编译结果 |
+| `html/`、`node_modules/` | ❌ | 生成物与依赖 |
+
+因为源文档不入库，换机器 clone 后需要重新放入 `raw/`；已编译的 `wiki/` 页面不受影响。
+
+推到远程：对 agent 说「同步」，或自己 `git add` + `commit` + `push`。仓库远程地址就是模板克隆来的那个（`git remote set-url origin <你的仓库>` 可改）。
 
 ## 静态网站生成
 
-将 `wiki/` 下的 markdown 编译为学术风简洁的 HTML 静态网站：
-
 ```bash
-node .skills/llmwiki-gen-web/gen-web.js
+npm install                          # 首次：安装 marked
+node scripts/gen-web.js              # 等价于 node .skills/llmwiki-gen-web/gen-web.js
 ```
 
 输出到 `html/` 目录：
 
 ```
 html/
-├── index.html              ← 首页（统计 + 全部分类列表）
+├── index.html              ← 首页（统计 + 分类列表 + 全文搜索框）
+├── search.json             ← 全文搜索索引
+├── search.js               ← 客户端搜索（从 scripts/search.js 复制）
 ├── concepts/               ← 概念页
 │   ├── index.html          ← 概念索引
-│   ├── 示例概念1.html
-│   ├── 示例概念2.html
-│   └── ...
-├── entities/               ← 实体页
-│   ├── index.html
-│   └── ...
-└── sources/                ← 源摘要页
-    ├── index.html
-    └── ...
+│   └── *.html
+├── entities/               ← 实体页 + index.html
+├── sources/                ← 源摘要页 + index.html
+└── qa/                     ← 归档查询 + index.html
 ```
 
 - **学术风排版**: Georgia 衬线正文，720px 阅读宽度，暖白背景
+- **全文搜索**: 覆盖标题 / 标签 / 摘要 / 正文
 - **分类导航**: 面包屑 + 分类索引页 + 返回首页
 - **内部链接**: wiki markdown 相对链接自动转为 `.html`
-- **零外部依赖**: CSS 内联，`marked` 运行时安装
+- **零外部依赖**: CSS 内联，只需要 `marked`
 - **增量安全**: `html/` 已在 `.gitignore`，生成物不进版本控制
 
-在 pi 中可直接说"生成网站"触发此流程。
+脚本内部用 `find`/`du` 统计文件，Windows 下建议在 WSL 或 Git Bash 中执行。
 
-`raw/.ingest-state.json` 仅维护一个 SHA256 哈希集合：
+在 agent 中可直接说「生成网站」触发此流程。
+
+## 增量检测
+
+`raw/.ingest-state.json` 只维护一个 SHA256 哈希集合：
 
 ```json
 ["fa64a306e7...","bb68367e42..."]
 ```
 
 - 计算文件 SHA256 → 查是否在集合中 → 不在则摄取并加入集合
-- 不存文件名、时间、任何元数据 — 纯粹哈希集合
+- 不存文件名、时间、任何元数据 —— 纯哈希集合
 - **内容没变** → 同样的 hash → 跳过
 - **内容更新** → 新 hash → 重新摄取
 - **新文件** → 新 hash → 摄取
@@ -252,12 +262,12 @@ html/
 
 ## 相关工具
 
-- **[anydoc](https://firecrawl.github.io/anydoc/)** — Firecrawl 出品，纯 Rust，Word/PPT/Excel/PDF/EPUB/CSV → GFM Markdown（格式从字节识别，中位数转换 < 5ms）
+- **[anydoc](https://github.com/firecrawl/anydoc)** — Firecrawl 出品，纯 Rust，Word/PPT/Excel/PDF/EPUB/CSV → GFM Markdown
 - **[pandoc](https://pandoc.org)** — 通用文档转换器，HTML → GFM Markdown（anydoc 不处理 HTML 时的补充）
 - **[RapidOCR](https://github.com/RapidAI/RapidOCR)** — 开源 OCR 引擎，基于 PaddleOCR，支持中英文图片文字识别
 - **[Obsidian Web Clipper](https://obsidian.com/clipper)** — 浏览器裁剪文章为 Markdown
-- **[mise](https://mise.jdx.dev)** — 运行时版本管理（Python、Node 等）
-- **[pi](https://github.com/earendil-works/pi-coding-agent)** — 编码助手，LLM wiki 的执行引擎
+- **[mise](https://mise.jdx.dev)** — 运行时版本管理，推荐用它锁定 Python 版本（版本写在 `mise.toml`，克隆后 `mise trust && mise install` 即可复现）
+- **编码 agent** — Claude Code、Codex、DSH、[pi](https://github.com/earendil-works/pi-coding-agent) 等，任选其一作为 LLM Wiki 的执行引擎
 
 ## 核心理念
 

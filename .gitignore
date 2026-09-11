@@ -22,10 +22,12 @@ __pycache__/
 # Node (if ever used)
 node_modules/
 
-# raw/ — 源文档不进版本控制，仅保留 .gitkeep 和状态文件
+# raw/ — 源文档不进版本控制，仅保留占位文件、assets 目录骨架和状态文件
 raw/*
 !raw/.gitkeep
 !raw/.ingest-state.json
+!raw/assets/
+!raw/assets/.gitkeep
 
 # html/ — 静态网站生成物
 html/

@@ -59,3 +59,14 @@
 - 方向：⬆ 上传（本地 → 远程），策略 ① 自动提交
 - 变更：新增 `.skills/llmwiki-{export,restore,update}/` 与 `scripts/{export,restore,update}.sh`；修改 `README.md`、`AGENTS.md`、`.gitignore`、`log.md`
 
+## [2026-09-11] docs | 补充代理用法
+
+- `README.md` 首次更新一节加代理说明：网络不通 GitHub 时用 `ALL_PROXY=socks5h://...`，脚本内部 `git fetch` 同样受用；强调要 `socks5h`（代理解析域名）
+- 背景：本机直连 GitHub HTTPS 超时、SSH 被沙箱阻挡，经 SOCKS5 代理（127.0.0.1:7890）打通
+- 实测：逐字照抄 README 的引导命令跑通 —— 真实 GitHub 取模板 → 引导旧仓库 → `update.sh` 到位、知识层保留
+
+## [2026-09-11] sync | 上传 — 补充代理说明（经代理推送）
+
+- 方向：⬆ 上传（本地 → 远程），策略 ① 自动提交
+- 说明：SSH 直连当前不可用（`~/.ssh` 控制套接字被沙箱阻挡），改用 HTTPS + SOCKS5 代理推送
+

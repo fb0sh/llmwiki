@@ -208,6 +208,15 @@ rm -rf /tmp/llmwiki-template
 
 之后直接 `./scripts/update.sh` 即可。
 
+> 网络不通 GitHub 时（国内常见），给 git 加代理即可，脚本内部调用的 `git fetch` 同样受用：
+>
+> ```bash
+> ALL_PROXY=socks5h://127.0.0.1:7890 git clone --depth 1 https://github.com/fb0sh/llmwiki /tmp/llmwiki-template
+> ALL_PROXY=socks5h://127.0.0.1:7890 /tmp/llmwiki-template/scripts/update.sh --target "$PWD"
+> ```
+>
+> 端口换成你自己代理的（Clash 常见 7890、V2Ray 常见 1080）。注意要 `socks5h`（h = 让代理解析域名），`socks5` 在部分环境下会连不上。
+
 ### 常用操作速查
 
 | 你说 | LLM 做 |

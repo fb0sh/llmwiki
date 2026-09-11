@@ -1,0 +1,1 @@
+../.skills/llmwiki-update/update.sh

@@ -42,6 +42,9 @@ llmwiki/
 │   ├── llmwiki-query/       #   查询工作流
 │   ├── llmwiki-doctor/      #   健康检查工作流
 │   ├── llmwiki-sync/        #   仓库同步工作流
+│   ├── llmwiki-export/      #   知识备份（打包知识层）
+│   ├── llmwiki-restore/     #   知识恢复（换机器补回 raw / 回滚快照）
+│   ├── llmwiki-update/      #   框架更新（从上游模板覆盖框架）
 │   ├── llmwiki-gen-web/     #   静态网站生成
 │   └── llmwiki-image-ocr/   #   图片 OCR 提取
 ├── raw/                     # 原始文档（不可变）
@@ -290,6 +293,25 @@ links: 42  # 此页面被其他页面引用的次数（lint 时更新）
 3. 更新 `index.md` 中的 `links` 计数
 4. 在 `log.md` 追加 lint 条目
 
+### 4. 备份与恢复 (Backup / Restore)
+
+当人类说"备份 / 导出"，或给了归档地址说"恢复 / 导入"：
+
+- **备份** → `llmwiki-export`：`./scripts/export.sh` 打包 `index.md` + `log.md` + `wiki/` + `raw/` 到 `backups/*.tar.gz`。默认含 `raw/`，因为 `raw/` 被 `.gitignore` 排除、git 里没有源材料。**框架文件不进归档。**
+- **恢复** → `llmwiki-restore`：`./scripts/restore.sh <归档或URL> --target <目录>`，只写知识层，框架文件保持目标仓库原样。用途是**换机器补回 `raw/` 源材料、回滚知识快照、迁到新仓库** —— 框架升级不走这里（那是 `update.sh`）。
+- 恢复脚本有护栏（归档身份 / SHA256 / 覆盖保护），**不要绕过**；`--force` 是破坏性操作，执行前必须让人类确认。
+- 备份完必须提醒人类把归档拷到仓库之外 —— 留在 `backups/` 不算备份。
+
+### 5. 框架更新 (Update)
+
+当人类说"更新框架 / 升级模板 / 拉上游"：
+
+- 上游是模板仓库 `https://github.com/fb0sh/llmwiki.git`（或人类自己的 fork）
+- **不要用 `git merge upstream/main`** —— Use this template 不复制历史，两边没有共同祖先，必然 `refusing to merge unrelated histories`
+- 正确做法 → `llmwiki-update`：`./scripts/update.sh`，取上游文件树只替换框架路径（`.skills/`、`.agents/`、`scripts/`、`AGENTS.md`、`README.md`、`package.json`、`package-lock.json`、`mise.toml`、`.gitignore`），`index.md` / `log.md` / `wiki/` / `raw/` 一律不碰
+- 先 `--dry-run`；本地自建的 skill 默认保留，`--prune` 才删；框架文件有未提交改动时会拒绝，需先提交或 `--force`
+- 仓库里还没有 `scripts/update.sh` 时，用上游副本引导：`git clone --depth 1 <上游> /tmp/tpl && /tmp/tpl/scripts/update.sh --target "$PWD"`
+
 ## 工具
 
 - **anydoc** (Firecrawl): 将 Word/PPT/Excel/PDF/EPUB/CSV 等转为 GFM Markdown 用于摄取（格式从字节识别，HTML 和图片不支持）
@@ -297,3 +319,5 @@ links: 42  # 此页面被其他页面引用的次数（lint 时更新）
 - **log.md**: 时间线，了解最近操作
 - **sha256sum**: 计算文件哈希，用于增量检测
 - **raw/.ingest-state.json**: 已处理文件的 SHA256 哈希集合（纯数组，无元数据）
+- **scripts/export.sh** / **scripts/restore.sh**: 知识备份与恢复（见 `.skills/llmwiki-export/`、`.skills/llmwiki-restore/`）
+- **scripts/update.sh**: 框架更新 —— 从上游模板覆盖框架文件（见 `.skills/llmwiki-update/`）

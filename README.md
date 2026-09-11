@@ -133,6 +133,81 @@ LLM 会扫描 `raw/`，对比 `raw/.ingest-state.json`，自动跳过已处理�
 
 LLM 会先问方向（⬆ 上传 / ⬇ 下载）再问策略，不擅自决定。
 
+### 备份与恢复
+
+`raw/` 源材料被 `.gitignore` 排除，git 里没有它 —— 要保住源材料只能靠备份。
+
+```
+备份
+```
+
+产出 `backups/llmwiki-knowledge-<时间戳>.tar.gz`，含 `index.md`、`log.md`、`wiki/`、`raw/`，附带 manifest 与 SHA256 校验和。
+
+**它保的是 git 保不住的那一层。** `raw/` 源材料被 `.gitignore` 排除，所以：
+
+| 层 | git 里有吗 | 需要 export 吗 |
+|----|-----------|----------------|
+| `wiki/`、`index.md`、`log.md` | ✅ 有 | 顺带打包（git 已覆盖） |
+| `raw/` 源材料 | ❌ 没有 | **只能靠它** |
+| `.ingest-state.json` | ✅ 有（但内容会与 raw 脱节） | 与源一起打包才自洽 |
+
+换机器 clone 只会得到 `wiki/`，`raw/` 里空无一物，而 `wiki` 页面里到处是 `(src: raw/xxx.md)` 引用 —— 源材料只有归档能还回来。
+
+什么时候要 restore：
+
+| 场景 | 说明 |
+|------|------|
+| 换机器 / 重装 | clone 拿到 `wiki/`，再 restore 补回 `raw/` |
+| 回滚知识 | 恢复到某个时间点的快照 |
+| 迁到全新仓库 | 新仓库 restore 旧知识（历史全新） |
+
+> 框架升级**不需要**它的参与 —— 那是 `update.sh` 的事，见下节；`update.sh` 是就地更新，不必克隆新模板再贴知识。
+
+| 命令 | 作用 |
+|------|------|
+| `./scripts/export.sh` | 导出知识备份到 `backups/` |
+| `./scripts/export.sh --no-raw` | 不含源材料（体积小，但源材料将无备份） |
+| `./scripts/restore.sh <归档> --target <目录>` | 把归档恢复到指定仓库 |
+| `./scripts/restore.sh <归档> --target <目录> --dry-run` | 只看会写什么，不动文件 |
+
+> ⚠️ **备份要拷到仓库之外**（网盘 / 外置盘）。`backups/` 不进版本控制，留在本机不算备份。
+>
+> 恢复有三道护栏：归档身份校验、SHA256 校验、覆盖前保护（目标已有知识会拒绝，需 `--force`）。
+>
+> 如果你另有办法保住 `raw/`（网盘、Time Machine、外部备份），export/restore 的价值主要是「知识快照 + 可回滚」。
+
+### 更新框架
+
+**Use this template 只复制文件快照，不复制 git 历史** —— 派生仓库和模板没有共同祖先，`git pull upstream main` 会直接失败（`fatal: refusing to merge unrelated histories`）。所以框架更新走独立通道：只换框架文件，知识层一个字符都不动。
+
+```
+更新框架
+```
+
+```bash
+./scripts/update.sh --dry-run    # 先看会改什么
+./scripts/update.sh              # 正式更新
+```
+
+| 更新（覆盖） | 永不触碰 |
+|--------------|----------|
+| `.skills/`、`.agents/`、`scripts/`、`AGENTS.md`、`README.md`、`package.json`、`package-lock.json`、`mise.toml`、`.gitignore` | `index.md`、`log.md`、`wiki/`、`raw/` |
+
+- 你自己加的 skill / 脚本**默认保留**（只报告），确认不要才加 `--prune`
+- 本地框架文件有未提交改动时**会拒绝**，先提交或加 `--force`
+- 换上游（比如你自己的模板 fork）：`--from <地址>`
+
+**首次更新**（你的仓库里还没有这个脚本）：
+
+```bash
+cd 你的wiki
+git clone --depth 1 https://github.com/fb0sh/llmwiki /tmp/llmwiki-template
+/tmp/llmwiki-template/scripts/update.sh --target "$PWD"
+rm -rf /tmp/llmwiki-template
+```
+
+之后直接 `./scripts/update.sh` 即可。
+
 ### 常用操作速查
 
 | 你说 | LLM 做 |
@@ -144,6 +219,9 @@ LLM 会先问方向（⬆ 上传 / ⬇ 下载）再问策略，不擅自决定�
 | "记住" / "把这个记入 wiki" | 归档到 `wiki/qa/` 或更新对应页面 |
 | "健康检查" 或 "lint" | 扫描矛盾、孤立页、过时声明、缺失交叉引用 |
 | "同步" / "上传" / "下载" | commit + push 或 pull（方向与策略必问） |
+| "备份" / "导出" | 把知识层打包成 `backups/*.tar.gz`（含 `raw/` 源材料） |
+| "恢复" / "导入" + 归档地址 | 校验后把知识层贴回目标仓库，框架文件不动 |
+| "更新框架" / "升级模板" | 从上游模板覆盖框架文件，知识层不动 |
 | "生成网站" 或 "build site" | 把 `wiki/` 编译为 `html/` 学术风静态网站 |
 | "OCR" 或 "识别图片文字" | RapidOCR 提取图片文字 → Markdown → 可继续 ingest |
 
@@ -164,6 +242,9 @@ LLM 会先问方向（⬆ 上传 / ⬇ 下载）再问策略，不擅自决定�
 | `llmwiki-query` | 查询 wiki 内容 — 读 index.md 定位页面 → 综合回答 | 直接提问 |
 | `llmwiki-doctor` | 健康检查 — 扫描矛盾页面、孤立页、过时声明、缺失交叉引用 | "健康检查" / "lint" |
 | `llmwiki-sync` | 仓库同步 — 上传（commit + push）或下载（pull），方向与策略必问 | "同步" / "上传" / "下载" |
+| `llmwiki-export` | 知识备份 — 打包 `index.md` + `log.md` + `wiki/` + `raw/` 为 tar.gz（含 manifest 与校验和） | "备份" / "导出" / "export" |
+| `llmwiki-restore` | 知识恢复 — 把归档贴回仓库（可给本地路径或 URL），只写知识层，框架文件不动 | "恢复" / "导入" / "restore" |
+| `llmwiki-update` | 框架更新 — 从上游模板覆盖框架文件，绕过无关历史，知识层不动 | "更新框架" / "升级模板" / "update" |
 | `llmwiki-gen-web` | 静态网站生成 — 把 `wiki/` markdown 编译为学术风 HTML 到 `html/` | "生成网站" / "build site" |
 | `llmwiki-image-ocr` | 图片 OCR — anydoc 提不出文字时用 RapidOCR 识别并输出 Markdown | "OCR" / "识别图片文字" |
 
@@ -185,9 +266,13 @@ llmwiki/
 │   ├── llmwiki-query/    ← 查询工作流
 │   ├── llmwiki-doctor/   ← 健康检查工作流
 │   ├── llmwiki-sync/     ← 仓库同步工作流
+│   ├── llmwiki-export/   ← 知识备份（export.sh）
+│   ├── llmwiki-restore/  ← 知识恢复（restore.sh）
+│   ├── llmwiki-update/   ← 框架更新（update.sh）
 │   ├── llmwiki-gen-web/  ← 静态网站生成（gen-web.js + search.js）
 │   └── llmwiki-image-ocr/← 图片 OCR 提取
 ├── .agents/skills        ← 软链 → ../.skills/
+├── backups/              ← 知识备份归档（不进版本控制）
 ├── raw/                  ← 原始文档（不可变）
 │   ├── .gitkeep
 │   ├── .ingest-state.json← SHA256 哈希集合（增量检测）
@@ -201,6 +286,9 @@ llmwiki/
 │   └── qa/               ← 归档查询
 └── scripts/
     ├── ingest.sh         ← 用 anydoc/pandoc 一键转换并放入 raw
+    ├── export.sh         ← 软链 → ../.skills/llmwiki-export/export.sh
+    ├── restore.sh        ← 软链 → ../.skills/llmwiki-restore/restore.sh
+    ├── update.sh         ← 软链 → ../.skills/llmwiki-update/update.sh
     ├── gen-web.js        ← 软链 → ../.skills/llmwiki-gen-web/gen-web.js
     └── search.js         ← 软链 → ../.skills/llmwiki-gen-web/search.js
 ```
@@ -215,9 +303,9 @@ llmwiki/
 | `.skills/`、`scripts/`、`AGENTS.md`、`README.md` | ✅ | 工作流与规范 |
 | `raw/.gitkeep`、`raw/assets/.gitkeep`、`raw/.ingest-state.json` | ✅ | 目录占位与增量检测状态（`raw/*` 规则的例外放行） |
 | `raw/*`（源文档、`raw/assets/` 里的附件） | ❌ | 只留本地，仓库里只有编译结果 |
-| `html/`、`node_modules/` | ❌ | 生成物与依赖 |
+| `html/`、`backups/`、`node_modules/` | ❌ | 生成物、备份归档与依赖 |
 
-因为源文档不入库，换机器 clone 后需要重新放入 `raw/`；已编译的 `wiki/` 页面不受影响。
+因为源文档不入库，换机器 clone 后需要重新放入 `raw/`；已编译的 `wiki/` 页面不受影响。想连源材料一起搬，用「备份与恢复」里的 export / restore。
 
 推到远程：对 agent 说「同步」，或自己 `git add` + `commit` + `push`。仓库远程地址就是模板克隆来的那个（`git remote set-url origin <你的仓库>` 可改）。
 

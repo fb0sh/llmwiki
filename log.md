@@ -30,3 +30,32 @@
 
 - 方向：⬆ 上传（本地 → 远程），策略 ① 自动提交
 - 变更：`README.md`、`AGENTS.md`、`.skills/llmwiki-ingest/SKILL.md`、`scripts/ingest.sh`、`log.md`
+
+## [2026-09-11] feat | 新增 llmwiki-export / llmwiki-restore
+
+- `llmwiki-export`（`scripts/export.sh`）：把知识层（`index.md` + `log.md` + `wiki/` + `raw/`）打包为 `backups/llmwiki-knowledge-<时间戳>.tar.gz`，附 `manifest.json`（时间 / 框架 commit / 各项计数）与 `SHA256SUMS`；`--no-raw` 可排除源材料。**框架文件不进归档**
+- `llmwiki-restore`（`scripts/restore.sh`）：把归档贴回仓库，只写知识层，框架文件保持目标原样；支持本地路径 / http(s) / file:// 地址，远程归档自行下载；护栏 = 归档身份校验 + SHA256 校验 + 覆盖保护（`--force` 才覆盖），另有 `--dry-run`
+- 意义：`raw/` 此前完全没有备份（`.gitignore` 排除），现在源材料第一次可被保住 —— 换机器 / 重装 / 回滚快照时，只有归档能还回 `raw/`
+- `README.md`、`AGENTS.md`、`.gitignore`（忽略 `backups/`）同步更新
+- 端到端实测：伪造知识 → export → 恢复到打了标记的新模板 → 框架文件未被改动；另测通 `--no-raw`、`--force`、`--dry-run`、URL 下载、篡改检测
+
+## [2026-09-11] feat | 新增 llmwiki-update（框架更新）
+
+- 起因：Use this template 只复制文件快照、不复制 git 历史，派生仓库与模板无共同祖先，`git merge upstream/main` 必然失败（`refusing to merge unrelated histories`），此前没有框架升级通道
+- `llmwiki-update`（`scripts/update.sh`）：取上游文件树，只替换框架路径（`.skills/`、`.agents/`、`scripts/`、`AGENTS.md`、`README.md`、`package.json`、`package-lock.json`、`mise.toml`、`.gitignore`）；`index.md` / `log.md` / `wiki/` / `raw/` 永不触碰
+- 选项：`--from`（换上游，可指自己的 fork）、`--target`（更新别的仓库，用于首次引导）、`--dry-run`、`--prune`（删除上游已移除的框架文件）、`--force`
+- 取舍：本地自建 skill 默认保留只报告（避免被静默删除）；框架文件有未提交改动时拒绝，保证改动有 git 兜底；不自动提交
+- 踩到两个坑并修掉：① 上游/本地为 shallow clone 时 ref 更新被拒（`shallow roots are not allowed to be updated`）→ 加 `--update-shallow`；② 历史无关导致 ref 更新非 fast-forward → 用 `+` 强制
+- 实测：dry-run / 正式 / 护栏 / `--force` / `--prune` / 首次引导 / 真实 GitHub 上游取值，全部通过；每次均校验 `wiki/`、`raw/`、`index.md` 的 SHA256 未变
+
+## [2026-09-11] docs | 修正 export/restore 的定位
+
+- 问题：此前把「拉新模板 → restore 贴回知识」写成框架升级路径，但既有了 `update.sh`（就地更新、知识原地不动），这条路就是多余的
+- 修正：`README.md`、`AGENTS.md`、三个 skill 的描述与交叉引用统一为 —— 框架升级只走 `update.sh`；export/restore 的用途是换机器补回 `raw/`、回滚知识快照、迁到新仓库
+- 明确前提：若人类另有办法保住 `raw/`（网盘 / Time Machine / 整目录备份），export 的价值主要是「知识快照 + 可回滚」，非必需
+
+## [2026-09-11] sync | 上传 — 备份/恢复/框架更新三条通道
+
+- 方向：⬆ 上传（本地 → 远程），策略 ① 自动提交
+- 变更：新增 `.skills/llmwiki-{export,restore,update}/` 与 `scripts/{export,restore,update}.sh`；修改 `README.md`、`AGENTS.md`、`.gitignore`、`log.md`
+

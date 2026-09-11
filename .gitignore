@@ -32,4 +32,8 @@ raw/*
 # html/ — 静态网站生成物
 html/
 
+# backups/ — 知识备份归档（llmwiki-export 产出）
+# 归档本身就是"仓库之外的副本"，不该再进版本控制；且含 raw/ 源材料
+backups/
+
 

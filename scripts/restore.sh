@@ -1,0 +1,1 @@
+../.skills/llmwiki-restore/restore.sh

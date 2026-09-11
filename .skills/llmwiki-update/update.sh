@@ -295,14 +295,14 @@ if [ -f "$ROOT/log.md" ]; then
     printf '\n## [%s] update | 框架更新到 %s\n\n' "$(date +%Y-%m-%d)" "$UP_SHA"
     printf -- '- 上游: %s (%s)\n' "$FROM" "$BRANCH"
     printf -- '- 覆盖: %s 处框架文件%s\n' "$UPDATED" "$PRUNE_NOTE"
-    printf -- '- 知识层（index.md / log.md / wiki/ / raw/）未改动\n'
+    printf -- '- 知识层（index.md / log.md / wiki/ / raw/）内容未改动；本次仅在 log.md 追加了本条记录\n'
   } >> "$ROOT/log.md"
 fi
 
 echo
 echo "✅ 框架已更新到 $UP_SHA"
 echo
-echo "知识层未改动。建议接着做:"
+echo "知识层内容未改动（仅在 log.md 追加了本条记录）。建议接着做:"
 echo "  1. git diff              # 复核框架改动"
 echo "  2. npm install           # package.json 有变时重装依赖"
 echo "  3. 让 agent 说「同步」   # 需要推送时"
